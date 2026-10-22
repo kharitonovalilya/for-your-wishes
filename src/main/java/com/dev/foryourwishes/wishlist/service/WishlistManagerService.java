@@ -3,6 +3,7 @@ package com.dev.foryourwishes.wishlist.service;
 import com.dev.foryourwishes.user.User;
 import com.dev.foryourwishes.user.UserManagerService;
 import com.dev.foryourwishes.wishlist.WishlistStatus;
+import com.dev.foryourwishes.wishlist.dto.WishlistDetailsResponse;
 import com.dev.foryourwishes.wishlist.dto.WishlistSummaryResponse;
 import com.dev.foryourwishes.wishlist.entity.Wish;
 import com.dev.foryourwishes.wishlist.entity.Wishlist;
@@ -49,6 +50,22 @@ public class WishlistManagerService {
         }
         Wish wish = new Wish(title, description, url, wishlist);
         return wishRepository.save(wish);
+    }
+
+    @Transactional
+    public WishlistDetailsResponse getWishlist(Long wishlistId, long viewerId) {
+        Wishlist wishlist = wishlistRepository.findById(wishlistId)
+                .orElseThrow(() -> new WishlistNotFoundException(wishlistId));
+        User owner = wishlist.getOwner();
+        if (owner.getId() != viewerId && wishlist.getStatus() == WishlistStatus.ARCHIVED) {
+            throw new WishlistNotFoundException(wishlistId);
+        }
+        return new WishlistDetailsResponse(
+                wishlistId,
+                wishlist.getTitle(),
+                wishlist.getDescription(),
+                wishlist.getStatus()
+        );
     }
 
     @Transactional

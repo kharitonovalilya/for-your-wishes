@@ -50,7 +50,7 @@ public class WishlistController {
     @GetMapping
     public List<WishlistSummaryResponse> getCurrentUserWishlists(
             @AuthenticationPrincipal AuthUser currentUser,
-            @RequestParam(required = false) WishlistStatus status
+            @RequestParam(required = true) WishlistStatus status
     ) {
         return wishlistManagerService.getWishlistsByUserId(
                 currentUser.getId(),
@@ -90,6 +90,9 @@ public class WishlistController {
             @AuthenticationPrincipal AuthUser currentUser,
             @PathVariable Long wishlistId
     ) {
-
+        return wishlistManagerService.getWishlist(
+                wishlistId,
+                currentUser.getId()
+        );
     }
 }

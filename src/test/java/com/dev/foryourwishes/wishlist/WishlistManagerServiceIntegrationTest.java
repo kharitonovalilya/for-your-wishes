@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class WishlistManagerServiceIntegrationTest {
     @Container
     @ServiceConnection
-    static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:latest");
+    static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:18-alpine");
 
     @Autowired
     private WishlistManagerService wishlistManagerService;
