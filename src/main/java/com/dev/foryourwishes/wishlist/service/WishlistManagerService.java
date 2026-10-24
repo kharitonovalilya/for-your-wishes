@@ -3,6 +3,7 @@ package com.dev.foryourwishes.wishlist.service;
 import com.dev.foryourwishes.user.User;
 import com.dev.foryourwishes.user.UserManagerService;
 import com.dev.foryourwishes.wishlist.WishlistStatus;
+import com.dev.foryourwishes.wishlist.dto.WishDetailsResponse;
 import com.dev.foryourwishes.wishlist.dto.WishlistDetailsResponse;
 import com.dev.foryourwishes.wishlist.dto.WishlistSummaryResponse;
 import com.dev.foryourwishes.wishlist.entity.Wish;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -52,19 +54,37 @@ public class WishlistManagerService {
         return wishRepository.save(wish);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public WishlistDetailsResponse getWishlist(Long wishlistId, long viewerId) {
-        Wishlist wishlist = wishlistRepository.findById(wishlistId)
-                .orElseThrow(() -> new WishlistNotFoundException(wishlistId));
+        Wishlist wishlist = findById(wishlistId);
         User owner = wishlist.getOwner();
-        if (owner.getId() != viewerId && wishlist.getStatus() == WishlistStatus.ARCHIVED) {
+        boolean isOwner = owner.getId().equals(viewerId);
+        if (!isOwner && wishlist.getStatus() == WishlistStatus.ARCHIVED) {
             throw new WishlistNotFoundException(wishlistId);
         }
+        List<Wish> wishes = wishRepository.findAllByWishlistId(wishlistId);
+        List<WishDetailsResponse> wishDetailsResponses = wishes.stream()
+                .map(wish -> {
+                    Boolean reserved = null;
+                    if (!isOwner) {
+                        reserved = reservationRepository.existsByWishId(wish.getId());
+                    }
+                    return new WishDetailsResponse(
+                            wish.getId(),
+                            wish.getTitle(),
+                            wish.getDescription(),
+                            wish.getUrl(),
+                            wish.getStatus(),
+                            reserved
+                    );
+                })
+                .toList();
         return new WishlistDetailsResponse(
                 wishlistId,
                 wishlist.getTitle(),
                 wishlist.getDescription(),
-                wishlist.getStatus()
+                wishlist.getStatus(),
+                wishDetailsResponses
         );
     }
 
@@ -105,9 +125,14 @@ public class WishlistManagerService {
         wishlist.unarchive();
     }
 
-    @Transactional
-    public List<WishlistSummaryResponse> getWishlistsByUserId(Long userId, WishlistStatus status) {
-        List<Wishlist> wishlists = wishlistRepository.findAllByOwnerIdAndStatus(userId, status);
+    @Transactional(readOnly = true)
+    public List<WishlistSummaryResponse> getCurrentUserWishlists(Long userId, WishlistStatus status) {
+        List<Wishlist> wishlists;
+        if (status == null) {
+            wishlists = wishlistRepository.findAllByOwnerId(userId);
+        } else {
+            wishlists = wishlistRepository.findAllByOwnerIdAndStatus(userId, status);
+        }
         return wishlists.stream()
                 .map(wishlist -> new WishlistSummaryResponse(wishlist.getId(), wishlist.getTitle(), wishlist.getDescription(), wishlist.getStatus()))
                 .toList();
