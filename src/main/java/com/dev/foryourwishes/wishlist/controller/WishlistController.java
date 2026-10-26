@@ -5,6 +5,7 @@ import com.dev.foryourwishes.wishlist.WishlistStatus;
 import com.dev.foryourwishes.wishlist.dto.*;
 import com.dev.foryourwishes.wishlist.entity.Wishlist;
 import com.dev.foryourwishes.wishlist.service.WishlistManagerService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,9 +22,9 @@ public class WishlistController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public WishlistResponse createWishlist
-            (@RequestBody CreateWishlistRequest request,
-             @AuthenticationPrincipal AuthUser currentUser) {
+    public WishlistResponse createWishlist(
+            @RequestBody @Valid CreateWishlistRequest request,
+            @AuthenticationPrincipal AuthUser currentUser) {
         Wishlist wishlist = wishlistManagerService.createWishlist(
                 currentUser.getId(),
                 request.title(),
@@ -35,9 +36,9 @@ public class WishlistController {
     @PostMapping("/{wishlistId}/wishes")
     @ResponseStatus(HttpStatus.CREATED)
     public WishResponse createWish(
-            @PathVariable Long wishlistId,
-            @RequestBody CreateWishRequest request,
-            @AuthenticationPrincipal AuthUser currentUser) {
+            @RequestBody @Valid CreateWishRequest request,
+            @AuthenticationPrincipal AuthUser currentUser,
+            @PathVariable Long wishlistId) {
         return wishlistManagerService.addWishToWishlist(wishlistId,
                 request.title(), request.description(), request.url(),
                 currentUser.getId());
@@ -46,7 +47,7 @@ public class WishlistController {
     @PatchMapping("/{wishlistId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void editWishlist(
-            @RequestBody EditWishlistRequest request,
+            @RequestBody @Valid EditWishlistRequest request,
             @AuthenticationPrincipal AuthUser currentUser,
             @PathVariable Long wishlistId
             ){
