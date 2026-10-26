@@ -11,11 +11,12 @@ import com.dev.foryourwishes.wishlist.exception.*;
 import com.dev.foryourwishes.wishlist.repository.ReservationRepository;
 import com.dev.foryourwishes.wishlist.repository.WishRepository;
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class WishManagerService {
 
     private final WishRepository wishRepository;
@@ -28,28 +29,27 @@ public class WishManagerService {
     }
 
     @Transactional
-    public void deleteWish(Long wishId) {
+    public void deleteWish(Long wishId, Long userId) {
+        Wish wish = findById(wishId);
+        checkOwner(wish, userId);
+        checkWishlistNotArchived(wish);
         reservationRepository.deleteByWishId(wishId);
-        wishRepository.deleteById(wishId);
+        wishRepository.delete(wish);
     }
 
     @Transactional
-    public void editWish(Long wishId, String newTitle, String newDescription, String newUrl) {
+    public void editWish(Long wishId, String newTitle, String newDescription, String newUrl, Long userId) {
         Wish wish = findById(wishId);
-        Wishlist wishlist = wish.getWishlist();
-        if (wishlist.getStatus() == WishlistStatus.ARCHIVED) {
-            throw new WishlistArchivedException(wishlist.getId());
-        }
+        checkOwner(wish, userId);
+        checkWishlistNotArchived(wish);
         wish.editWish(newTitle, newDescription, newUrl);
     }
 
     @Transactional
-    public void markAsFulfilled(Long wishId) {
+    public void markAsFulfilled(Long wishId, Long userId) {
         Wish wish = findById(wishId);
-        Wishlist wishlist = wish.getWishlist();
-        if (wishlist.getStatus() == WishlistStatus.ARCHIVED) {
-            throw new WishlistArchivedException(wishlist.getId());
-        }
+        checkOwner(wish, userId);
+        checkWishlistNotArchived(wish);
         wish.markAsFulfilled();
         reservationRepository.deleteByWishId(wishId);
     }
@@ -57,32 +57,45 @@ public class WishManagerService {
     @Transactional
     public void reserveWish(Long wishId, Long userId) {
         Wish wish = findById(wishId);
+        checkWishlistNotArchived(wish);
         if (wish.getStatus() == WishStatus.FULFILLED) {
             throw new WishFulfilledException(wishId);
         }
-        if (reservationRepository.existsByWishId(wishId)) {
-            throw new WishReservedException(userId);
-        }
         Wishlist wishlist = wish.getWishlist();
-        if (wishlist.getStatus() == WishlistStatus.ARCHIVED) {
-            throw new WishlistArchivedException(wishlist.getId());
-        }
-        User user = userManagerService.findById(userId);
         if (wishlist.getOwner().getId().equals(userId)) {
             throw new OwnWishReservationException(userId);
         }
+        if (reservationRepository.existsByWishId(wishId)) {
+            throw new WishReservedException(wishId);
+        }
+        User user = userManagerService.findById(userId);
         Reservation reservation = new Reservation(wish, user);
         reservationRepository.save(reservation);
     }
 
     @Transactional
     public void cancelReservation(Long wishId, Long userId) {
+        Wish wish = findById(wishId);
+        checkWishlistNotArchived(wish);
         Reservation reservation = reservationRepository.findByWishId(wishId)
                 .orElseThrow(() -> new ReservationNotFoundException(wishId));
         if (!reservation.getReservedBy().getId().equals(userId)) {
             throw new ReservationAccessDeniedException(reservation.getId());
         }
         reservationRepository.delete(reservation);
+    }
+
+    private void checkOwner(Wish wish, Long userId) {
+        Long ownerId = wish.getWishlist().getOwner().getId();
+        if (!ownerId.equals(userId)) {
+            throw new WishlistAccessDeniedException(wish.getWishlist().getId(), userId);
+        }
+    }
+
+    private void checkWishlistNotArchived(Wish wish) {
+        if (wish.getWishlist().getStatus() == WishlistStatus.ARCHIVED) {
+            throw new WishlistArchivedException(wish.getWishlist().getId());
+        }
     }
 
 }

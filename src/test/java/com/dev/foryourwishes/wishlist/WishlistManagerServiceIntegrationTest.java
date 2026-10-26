@@ -2,6 +2,7 @@ package com.dev.foryourwishes.wishlist;
 
 import com.dev.foryourwishes.user.User;
 import com.dev.foryourwishes.user.UserRepository;
+import com.dev.foryourwishes.wishlist.entity.Reservation;
 import com.dev.foryourwishes.wishlist.entity.Wish;
 import com.dev.foryourwishes.wishlist.entity.Wishlist;
 import com.dev.foryourwishes.wishlist.repository.ReservationRepository;
@@ -37,6 +38,9 @@ class WishlistManagerServiceIntegrationTest {
     private ReservationRepository reservationRepository;
     @Autowired
     private WishlistRepository wishlistRepository;
+
+    @Autowired
+    private WishManagerService wishManagerService;
 
     @Test
     void shouldDeleteWishlistWithWishes() {

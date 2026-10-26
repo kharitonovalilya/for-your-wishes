@@ -4,6 +4,7 @@ import com.dev.foryourwishes.user.User;
 import com.dev.foryourwishes.user.UserManagerService;
 import com.dev.foryourwishes.wishlist.WishlistStatus;
 import com.dev.foryourwishes.wishlist.dto.WishDetailsResponse;
+import com.dev.foryourwishes.wishlist.dto.WishResponse;
 import com.dev.foryourwishes.wishlist.dto.WishlistDetailsResponse;
 import com.dev.foryourwishes.wishlist.dto.WishlistSummaryResponse;
 import com.dev.foryourwishes.wishlist.entity.Wish;
@@ -16,11 +17,13 @@ import com.dev.foryourwishes.wishlist.repository.ReservationRepository;
 import com.dev.foryourwishes.wishlist.repository.WishRepository;
 import com.dev.foryourwishes.wishlist.repository.WishlistRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 
 @Service
 @AllArgsConstructor
@@ -44,14 +47,15 @@ public class WishlistManagerService {
     }
 
     @Transactional
-    public Wish addWishToWishlist(Long wishlistId, String title, String description, String url, Long userId) {
+    public WishResponse addWishToWishlist(Long wishlistId, String title, String description, String url, Long userId) {
         Wishlist wishlist = findById(wishlistId);
         checkOwner(wishlist, userId);
         if (wishlist.getStatus() == WishlistStatus.ARCHIVED) {
             throw new WishlistArchivedException(wishlistId);
         }
         Wish wish = new Wish(title, description, url, wishlist);
-        return wishRepository.save(wish);
+        Wish savedWish = wishRepository.save(wish);
+        return new WishResponse(savedWish.getId(), savedWish.getTitle(), savedWish.getStatus());
     }
 
     @Transactional(readOnly = true)
@@ -63,11 +67,17 @@ public class WishlistManagerService {
             throw new WishlistNotFoundException(wishlistId);
         }
         List<Wish> wishes = wishRepository.findAllByWishlistId(wishlistId);
+        Set<Long> reservedWishIds;
+        if (!isOwner) {
+            reservedWishIds = new HashSet<>(reservationRepository.findReservedWishIdsByWishlistId(wishlistId));
+        } else {
+            reservedWishIds = Set.of();
+        }
         List<WishDetailsResponse> wishDetailsResponses = wishes.stream()
                 .map(wish -> {
                     Boolean reserved = null;
                     if (!isOwner) {
-                        reserved = reservationRepository.existsByWishId(wish.getId());
+                        reserved = reservedWishIds.contains(wish.getId());
                     }
                     return new WishDetailsResponse(
                             wish.getId(),

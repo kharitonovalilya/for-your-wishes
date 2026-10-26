@@ -32,6 +32,17 @@ public class WishlistController {
         return new WishlistResponse(wishlist.getId(), wishlist.getTitle(), wishlist.getDescription());
     }
 
+    @PostMapping("/{wishlistId}/wishes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public WishResponse createWish(
+            @PathVariable Long wishlistId,
+            @RequestBody CreateWishRequest request,
+            @AuthenticationPrincipal AuthUser currentUser) {
+        return wishlistManagerService.addWishToWishlist(wishlistId,
+                request.title(), request.description(), request.url(),
+                currentUser.getId());
+    }
+
     @PatchMapping("/{wishlistId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void editWishlist(

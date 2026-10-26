@@ -65,7 +65,7 @@ class WishManagerServiceIntegrationTest {
         Wish wish = wishRepository.save(new Wish("wish", "-", "https://example", wishlist));
         wishManagerService.reserveWish(wish.getId(), reserver.getId());
 
-        wishManagerService.markAsFulfilled(wish.getId());
+        wishManagerService.markAsFulfilled(wish.getId(), owner.getId());
         Wish updatedWish = wishRepository.findById(wish.getId())
                 .orElseThrow();
 
