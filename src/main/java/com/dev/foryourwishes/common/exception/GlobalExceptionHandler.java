@@ -4,8 +4,17 @@ import com.dev.foryourwishes.user.exception.UserNotFoundException;
 import com.dev.foryourwishes.wishlist.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -17,10 +26,12 @@ public class GlobalExceptionHandler {
             UserNotFoundException.class
     })
     public ProblemDetail handleNotFound(RuntimeException exception) {
-        return ProblemDetail.forStatusAndDetail(
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND,
                 exception.getMessage()
         );
+        problem.setTitle("Resource not found");
+        return problem;
     }
 
     @ExceptionHandler({
@@ -28,10 +39,12 @@ public class GlobalExceptionHandler {
             ReservationAccessDeniedException.class
     })
     public ProblemDetail handleAccessDenied(RuntimeException exception) {
-        return ProblemDetail.forStatusAndDetail(
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.FORBIDDEN,
                 exception.getMessage()
         );
+        problem.setTitle("Access denied");
+        return problem;
     }
 
     @ExceptionHandler({
@@ -41,10 +54,53 @@ public class GlobalExceptionHandler {
             OwnWishReservationException.class
     })
     public ProblemDetail handleConflict(RuntimeException exception) {
-        return ProblemDetail.forStatusAndDetail(
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT,
                 exception.getMessage()
         );
+        problem.setTitle("Conflict");
+        return problem;
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ProblemDetail handleValidation(MethodArgumentNotValidException exception) {
+        List<FieldError> fieldErrors = exception.getBindingResult().getFieldErrors();
+        Map<String, String> properties = fieldErrors.stream()
+                .collect(Collectors.toMap(
+                        FieldError::getField,
+                        error -> Objects.requireNonNullElse(
+                                error.getDefaultMessage(),
+                                "Invalid value"
+                        ),
+                        (first, second) -> first
+                ));
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Request contains invalid fields"
+        );
+        problem.setTitle("Validation failed");
+        problem.setProperty("errors", properties);
+        return problem;
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail handleMessageNotReadable(HttpMessageNotReadableException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Request contains invalid data"
+        );
+        problem.setTitle("Invalid data");
+        return problem;
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleArgumentTypeMismatch(MethodArgumentTypeMismatchException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Invalid value %s for parameter %s".formatted(exception.getValue(), exception.getName())
+        );
+        problem.setTitle("Invalid parameter");
+        return problem;
     }
 
 }

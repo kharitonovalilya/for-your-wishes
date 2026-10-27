@@ -34,5 +34,7 @@ build/
 
 ### env ###
 local.properties
+.env
 
 cookies.txt
+
