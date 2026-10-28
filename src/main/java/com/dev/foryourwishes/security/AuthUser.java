@@ -1,29 +1,32 @@
 package com.dev.foryourwishes.security;
 
 import lombok.Getter;
-import org.jspecify.annotations.Nullable;
-import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
-public final class AuthUser implements UserDetails, CredentialsContainer {
-    @Getter
+@Getter
+public class AuthUser implements OAuth2AuthenticatedPrincipal {
     private final Long id;
     private final String login;
-    private String passwordHash;
+    private final Map<String, Object> attributes;
 
-    public AuthUser(Long id, String login, String passwordHash) {
+    public AuthUser(Long id, String login) {
+        this(id, login, Map.of());
+    }
+
+    public AuthUser(Long id, String login, Map<String, Object> attributes) {
         this.id = id;
         this.login = login;
-        this.passwordHash = passwordHash;
+        this.attributes = Map.copyOf(attributes);
     }
 
     @Override
-    public void eraseCredentials() {
-        passwordHash = null;
+    public Map<String, Object> getAttributes() {
+        return attributes;
     }
 
     @Override
@@ -32,17 +35,7 @@ public final class AuthUser implements UserDetails, CredentialsContainer {
     }
 
     @Override
-    public @Nullable String getPassword() {
-        return passwordHash;
-    }
-
-    @Override
-    public String getUsername() {
+    public String getName() {
         return login;
-    }
-
-    @Override
-    public String toString() {
-        return "AuthUser[id=%d, login=%s]".formatted(id, login);
     }
 }

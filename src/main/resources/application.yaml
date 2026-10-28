@@ -9,5 +9,13 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: validate
     show-sql: true
+app:
+  security:
+    jwt:
+      issuer: for-your-wishes
+      audience: for-your-wishes-api
+      access-token-ttl: 15m
+      public-key: file:./secrets/public.pem
+      private-key: file:./secrets/private.pem

@@ -18,6 +18,6 @@ public class DatabaseUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String login) throws UsernameNotFoundException {
         User user = userRepository.findByLogin(login)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + login));
-        return new AuthUser(user.getId(), user.getLogin(), user.getPasswordHash());
+        return new DatabaseUserDetails(user.getId(), user.getLogin(), user.getPasswordHash());
     }
 }

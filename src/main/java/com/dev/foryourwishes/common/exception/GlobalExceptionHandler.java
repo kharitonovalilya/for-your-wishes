@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import javax.security.sasl.AuthenticationException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -100,6 +101,16 @@ public class GlobalExceptionHandler {
                 "Invalid value %s for parameter %s".formatted(exception.getValue(), exception.getName())
         );
         problem.setTitle("Invalid parameter");
+        return problem;
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail handleAuthentication(AuthenticationException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED,
+                "Invalid login or password"
+        );
+        problem.setTitle("Authentication failed");
         return problem;
     }
 
