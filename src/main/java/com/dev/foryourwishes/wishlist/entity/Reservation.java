@@ -10,7 +10,12 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Reservation {
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "reservations_seq")
+    @SequenceGenerator(
+            name = "reservations_seq",
+            sequenceName = "users_seq",
+            allocationSize = 50
+    )
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)

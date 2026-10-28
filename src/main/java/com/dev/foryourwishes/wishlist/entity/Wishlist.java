@@ -11,7 +11,15 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Wishlist {
     @Id
-    @GeneratedValue
+    @GeneratedValue(
+            strategy = GenerationType.SEQUENCE,
+            generator = "wishlists_seq"
+    )
+    @SequenceGenerator(
+            name = "wishlists_seq",
+            sequenceName = "wishlists_seq",
+            allocationSize = 50
+    )
     private Long id;
 
     @Column(nullable = false, length = 50)

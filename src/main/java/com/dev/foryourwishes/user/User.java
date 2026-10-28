@@ -9,7 +9,12 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "users_seq")
+    @SequenceGenerator(
+            name = "users_seq",
+            sequenceName = "users_seq",
+            allocationSize = 50
+    )
     private Long id;
 
     @Column(unique = true, nullable = false)
