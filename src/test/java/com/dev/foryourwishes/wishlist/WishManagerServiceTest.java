@@ -12,6 +12,7 @@ import com.dev.foryourwishes.wishlist.exception.WishReservedException;
 import com.dev.foryourwishes.wishlist.exception.WishlistArchivedException;
 import com.dev.foryourwishes.wishlist.repository.ReservationRepository;
 import com.dev.foryourwishes.wishlist.repository.WishRepository;
+import com.dev.foryourwishes.wishlist.repository.WishlistRepository;
 import com.dev.foryourwishes.wishlist.service.WishManagerService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +40,8 @@ class WishManagerServiceTest {
     @Mock
     private WishRepository wishRepository;
     @Mock
+    private WishlistRepository wishlistRepository;
+    @Mock
     private ReservationRepository reservationRepository;
     @Mock
     private UserManagerService userManagerService;
@@ -47,12 +50,14 @@ class WishManagerServiceTest {
 
     @Test
     void shouldNotReserveFulfilledWish() {
+        Wishlist wishlist = createWishlist();
         Wish wish = createWish();
         wish.markAsFulfilled();
 
-        when(wishRepository.findById(WISH_ID))
+        when(wishRepository.findWithLockById(WISH_ID))
                 .thenReturn(Optional.of(wish));
-
+        when(wishlistRepository.findWithLockByWishId(WISH_ID))
+                .thenReturn(Optional.of(wishlist));
         assertThrows(
                 WishFulfilledException.class,
                 () -> wishManagerService.reserveWish(WISH_ID, USER_ID)
@@ -67,11 +72,13 @@ class WishManagerServiceTest {
         User owner = mock(User.class);
         when(owner.getId()).thenReturn(USER_ID);
 
+        Wishlist wishlist = createWishlist(owner);
         Wish wish = createWish(owner);
 
-        when(wishRepository.findById(WISH_ID))
+        when(wishRepository.findWithLockById(WISH_ID))
                 .thenReturn(Optional.of(wish));
-
+        when(wishlistRepository.findWithLockByWishId(WISH_ID))
+                .thenReturn(Optional.of(wishlist));
         assertThrows(
                 OwnWishReservationException.class,
                 () -> wishManagerService.reserveWish(WISH_ID, USER_ID)
@@ -86,11 +93,13 @@ class WishManagerServiceTest {
         User owner = mock(User.class);
         when(owner.getId()).thenReturn(OTHER_USER_ID);
 
+        Wishlist wishlist = createWishlist(owner);
         Wish wish = createWish(owner);
 
-        when(wishRepository.findById(WISH_ID))
+        when(wishRepository.findWithLockById(WISH_ID))
                 .thenReturn(Optional.of(wish));
-
+        when(wishlistRepository.findWithLockByWishId(WISH_ID))
+                .thenReturn(Optional.of(wishlist));
         when(reservationRepository.existsByWishId(WISH_ID))
                 .thenReturn(true);
 
@@ -110,8 +119,10 @@ class WishManagerServiceTest {
 
         Wish wish = createWish(wishlist);
 
-        when(wishRepository.findById(WISH_ID))
+        when(wishRepository.findWithLockById(WISH_ID))
                 .thenReturn(Optional.of(wish));
+        when(wishlistRepository.findWithLockByWishId(WISH_ID))
+                .thenReturn(Optional.of(wishlist));
 
         assertThrows(
                 WishlistArchivedException.class,

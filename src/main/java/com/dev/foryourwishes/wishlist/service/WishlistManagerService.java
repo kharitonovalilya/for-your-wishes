@@ -119,7 +119,8 @@ public class WishlistManagerService {
 
     @Transactional
     public void archiveWishlist(Long wishlistId, Long userId) {
-        Wishlist wishlist = findById(wishlistId);
+        Wishlist wishlist = wishlistRepository.findWithLockById(wishlistId)
+                        .orElseThrow(() -> new WishlistNotFoundException(wishlistId));
         checkOwner(wishlist, userId);
         if (wishlist.getStatus() == WishlistStatus.ARCHIVED) {
             throw new WishlistArchivedException(wishlistId);

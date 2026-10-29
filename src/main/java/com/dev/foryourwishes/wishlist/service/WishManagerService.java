@@ -10,6 +10,7 @@ import com.dev.foryourwishes.wishlist.entity.Wishlist;
 import com.dev.foryourwishes.wishlist.exception.*;
 import com.dev.foryourwishes.wishlist.repository.ReservationRepository;
 import com.dev.foryourwishes.wishlist.repository.WishRepository;
+import com.dev.foryourwishes.wishlist.repository.WishlistRepository;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -24,6 +25,8 @@ public class WishManagerService {
     private final ReservationRepository reservationRepository;
     private final UserManagerService userManagerService;
 
+    private final WishlistRepository wishlistRepository;
+
     public Wish findById(Long wishId) {
         return wishRepository.findById(wishId)
                 .orElseThrow(() -> new WishNotFoundException(wishId));
@@ -33,7 +36,7 @@ public class WishManagerService {
     public void deleteWish(Long wishId, Long userId) {
         Wish wish = findById(wishId);
         checkOwner(wish, userId);
-        checkWishlistNotArchived(wish);
+        checkWishlistNotArchived(wish.getWishlist());
         reservationRepository.deleteByWishId(wishId);
         wishRepository.delete(wish);
     }
@@ -42,27 +45,30 @@ public class WishManagerService {
     public void editWish(Long wishId, String newTitle, String newDescription, String newUrl, Long userId) {
         Wish wish = findById(wishId);
         checkOwner(wish, userId);
-        checkWishlistNotArchived(wish);
+        checkWishlistNotArchived(wish.getWishlist());
         wish.editWish(newTitle, newDescription, newUrl);
     }
 
     @Transactional
     public void markAsFulfilled(Long wishId, Long userId) {
-        Wish wish = findById(wishId);
+        Wish wish = wishRepository.findWithLockById(wishId)
+                .orElseThrow(() -> new WishNotFoundException(wishId));
         checkOwner(wish, userId);
-        checkWishlistNotArchived(wish);
+        checkWishlistNotArchived(wish.getWishlist());
         wish.markAsFulfilled();
         reservationRepository.deleteByWishId(wishId);
     }
 
     @Transactional
     public void reserveWish(Long wishId, Long reserverId) {
-        Wish wish = findById(wishId);
-        checkWishlistNotArchived(wish);
+        Wish wish = wishRepository.findWithLockById(wishId)
+                        .orElseThrow(() -> new WishNotFoundException(wishId));
+        Wishlist wishlist = wishlistRepository.findWithLockByWishId(wishId)
+                .orElseThrow(() -> new WishlistNotFoundException(wish.getWishlist().getId()));
+        checkWishlistNotArchived(wishlist);
         if (wish.getStatus() == WishStatus.FULFILLED) {
             throw new WishFulfilledException(wishId);
         }
-        Wishlist wishlist = wish.getWishlist();
         if (wishlist.getOwner().getId().equals(reserverId)) {
             throw new OwnWishReservationException(reserverId);
         }
@@ -81,7 +87,7 @@ public class WishManagerService {
     @Transactional
     public void cancelReservation(Long wishId, Long userId) {
         Wish wish = findById(wishId);
-        checkWishlistNotArchived(wish);
+        checkWishlistNotArchived(wish.getWishlist());
         Reservation reservation = reservationRepository.findByWishId(wishId)
                 .orElseThrow(() -> new ReservationNotFoundException(wishId));
         if (!reservation.getReservedBy().getId().equals(userId)) {
@@ -97,9 +103,9 @@ public class WishManagerService {
         }
     }
 
-    private void checkWishlistNotArchived(Wish wish) {
-        if (wish.getWishlist().getStatus() == WishlistStatus.ARCHIVED) {
-            throw new WishlistArchivedException(wish.getWishlist().getId());
+    private void checkWishlistNotArchived(Wishlist wishlist) {
+        if (wishlist.getStatus() == WishlistStatus.ARCHIVED) {
+            throw new WishlistArchivedException(wishlist.getId());
         }
     }
 

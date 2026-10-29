@@ -1,4 +1,4 @@
-package com.dev.foryourwishes.common.exception;
+package com.dev.foryourwishes.exception;
 
 import com.dev.foryourwishes.user.exception.EmailAlreadyExistsException;
 import com.dev.foryourwishes.user.exception.LoginAlreadyExistsException;

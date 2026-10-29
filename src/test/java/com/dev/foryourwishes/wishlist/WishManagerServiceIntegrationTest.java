@@ -10,6 +10,7 @@ import com.dev.foryourwishes.wishlist.repository.ReservationRepository;
 import com.dev.foryourwishes.wishlist.repository.WishRepository;
 import com.dev.foryourwishes.wishlist.repository.WishlistRepository;
 import com.dev.foryourwishes.wishlist.service.WishManagerService;
+import com.dev.foryourwishes.wishlist.service.WishlistManagerService;
 import org.apache.catalina.Executor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,9 @@ class WishManagerServiceIntegrationTest {
     private ReservationRepository reservationRepository;
     @Autowired
     private WishlistRepository wishlistRepository;
+
+    @Autowired
+    private WishlistManagerService wishlistManagerService;
 
     @Test
     void shouldReserveAvailableWish() {
@@ -127,6 +131,108 @@ class WishManagerServiceIntegrationTest {
         assertTrue(reservation.isPresent());
         assertEquals(1, successfulReservations.get());
         assertEquals(1, failedReservations.get());
+    }
+
+    @Test
+    void shouldKeepFulfilledWishWithoutReservationWhenReserveAndFulfillAreConcurrent() throws InterruptedException, ExecutionException {
+        User owner = userRepository.save(new User("owner@test.ru", "owner", "hash"));
+        User reserver = userRepository.save(new User("reserver@test.ru", "reserver", "hash"));
+        Wishlist wishlist = wishlistRepository.save(new Wishlist("wishlist", "-", owner));
+        Wish wish = wishRepository.save(new Wish("wish", "-", "https://example", wishlist));
+
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<?>> futures = new ArrayList<>();
+
+        futures.add(executorService.submit(() -> {
+            ready.countDown();
+            try {
+                start.await();
+                wishManagerService.reserveWish(wish.getId(), reserver.getId());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+            catch (WishFulfilledException e) {
+                return;
+            }
+        }));
+
+        futures.add(executorService.submit(() -> {
+            ready.countDown();
+            try {
+                start.await();
+                wishManagerService.markAsFulfilled(wish.getId(), owner.getId());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }));
+
+        ready.await();
+        start.countDown();
+        for(Future<?> future : futures) {
+            future.get();
+        }
+        executorService.shutdown();
+
+        Wish updatedWish = wishRepository.findById(wish.getId())
+                .orElseThrow();
+        assertEquals(WishStatus.FULFILLED, updatedWish.getStatus());
+        Optional<Reservation> reservation = reservationRepository.findByWishId(updatedWish.getId());
+        assertFalse(reservation.isPresent());
+    }
+
+    @Test
+    void shouldBeNoReservationWhenWishlistIsArchived() throws InterruptedException, ExecutionException {
+        User owner = userRepository.save(new User("owner@test.ru", "owner", "hash"));
+        User reserver = userRepository.save(new User("reserver@test.ru", "reserver", "hash"));
+        Wishlist wishlist = wishlistRepository.save(new Wishlist("wishlist", "-", owner));
+        Wish wish = wishRepository.save(new Wish("wish", "-", "https://example", wishlist));
+
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<?>> futures = new ArrayList<>();
+
+        futures.add(executorService.submit(() -> {
+            ready.countDown();
+            try {
+                start.await();
+                wishManagerService.reserveWish(wish.getId(), reserver.getId());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+            catch (WishlistArchivedException e){
+                return;
+            }
+        }));
+
+        futures.add(executorService.submit(() -> {
+            ready.countDown();
+            try {
+                start.await();
+                wishlistManagerService.archiveWishlist(wishlist.getId(), owner.getId());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }));
+
+        ready.await();
+        start.countDown();
+        for(Future<?> future : futures) {
+            future.get();
+        }
+        executorService.shutdown();
+
+        Wishlist updatedWishlist = wishlistRepository.findById(wishlist.getId())
+                .orElseThrow();
+        assertEquals(WishlistStatus.ARCHIVED, updatedWishlist.getStatus());
+        Optional<Reservation> reservation = reservationRepository.findByWishId(wish.getId());
+        assertFalse(reservation.isPresent());
     }
 
     @AfterEach
