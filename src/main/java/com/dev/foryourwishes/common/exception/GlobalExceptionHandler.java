@@ -1,5 +1,7 @@
 package com.dev.foryourwishes.common.exception;
 
+import com.dev.foryourwishes.user.exception.EmailAlreadyExistsException;
+import com.dev.foryourwishes.user.exception.LoginAlreadyExistsException;
 import com.dev.foryourwishes.user.exception.UserNotFoundException;
 import com.dev.foryourwishes.wishlist.exception.*;
 import org.springframework.http.HttpStatus;
@@ -52,7 +54,9 @@ public class GlobalExceptionHandler {
             WishFulfilledException.class,
             WishReservedException.class,
             WishlistArchivedException.class,
-            OwnWishReservationException.class
+            OwnWishReservationException.class,
+            LoginAlreadyExistsException.class,
+            EmailAlreadyExistsException.class
     })
     public ProblemDetail handleConflict(RuntimeException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
