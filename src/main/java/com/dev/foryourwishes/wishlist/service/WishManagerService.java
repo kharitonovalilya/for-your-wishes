@@ -12,6 +12,7 @@ import com.dev.foryourwishes.wishlist.repository.ReservationRepository;
 import com.dev.foryourwishes.wishlist.repository.WishRepository;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,22 +56,26 @@ public class WishManagerService {
     }
 
     @Transactional
-    public void reserveWish(Long wishId, Long userId) {
+    public void reserveWish(Long wishId, Long reserverId) {
         Wish wish = findById(wishId);
         checkWishlistNotArchived(wish);
         if (wish.getStatus() == WishStatus.FULFILLED) {
             throw new WishFulfilledException(wishId);
         }
         Wishlist wishlist = wish.getWishlist();
-        if (wishlist.getOwner().getId().equals(userId)) {
-            throw new OwnWishReservationException(userId);
+        if (wishlist.getOwner().getId().equals(reserverId)) {
+            throw new OwnWishReservationException(reserverId);
         }
         if (reservationRepository.existsByWishId(wishId)) {
             throw new WishReservedException(wishId);
         }
-        User user = userManagerService.findById(userId);
-        Reservation reservation = new Reservation(wish, user);
-        reservationRepository.save(reservation);
+        User reserver = userManagerService.findById(reserverId);
+        Reservation reservation = new Reservation(wish, reserver);
+        try {
+            reservationRepository.saveAndFlush(reservation);
+        } catch (DataIntegrityViolationException e) {
+            throw new WishReservedException(wishId);
+        }
     }
 
     @Transactional

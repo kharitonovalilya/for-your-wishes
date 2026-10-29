@@ -26,7 +26,7 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse register(@RequestBody RegisterUserRequest request) {
+    public UserResponse register(@RequestBody @Valid RegisterUserRequest request) {
         User user = userManagerService.create(
                 request.email(), request.login(), request.password()
         );
@@ -34,7 +34,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public TokenResponse login(@Valid @RequestBody LoginRequest request) {
+    public TokenResponse login(@RequestBody @Valid LoginRequest request) {
         Authentication authenticationRequest =
                 UsernamePasswordAuthenticationToken.unauthenticated(
                         request.login(),

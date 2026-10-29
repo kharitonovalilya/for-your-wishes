@@ -10,16 +10,23 @@ import com.dev.foryourwishes.wishlist.repository.ReservationRepository;
 import com.dev.foryourwishes.wishlist.repository.WishRepository;
 import com.dev.foryourwishes.wishlist.repository.WishlistRepository;
 import com.dev.foryourwishes.wishlist.service.WishManagerService;
+import org.apache.catalina.Executor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -72,6 +79,54 @@ class WishManagerServiceIntegrationTest {
         assertEquals(WishStatus.FULFILLED, updatedWish.getStatus());
         Optional<Reservation> reservation = reservationRepository.findByWishId(updatedWish.getId());
         assertFalse(reservation.isPresent());
+    }
+
+    @Test
+    void shouldAllowOnlyOneReservationWhenRequestsAreConcurrent() throws InterruptedException, ExecutionException {
+        User owner = userRepository.save(new User("owner@test.ru", "owner", "hash"));
+        User reserver1 = userRepository.save(new User("reserver1@test.ru", "reserver1", "hash"));
+        User reserver2 = userRepository.save(new User("reserver2@test.ru", "reserver2", "hash"));
+        Wishlist wishlist = wishlistRepository.save(new Wishlist("wishlist", "-", owner));
+        Wish wish = wishRepository.save(new Wish("wish", "-", "https://example", wishlist));
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger successfulReservations = new AtomicInteger();
+        AtomicInteger failedReservations = new AtomicInteger();
+        List<User> reservers = List.of(reserver1, reserver2);
+        List<Future<?>> futures = new ArrayList<>();
+
+        for(User reserver : reservers){
+            Future<?> future = executor.submit(() -> {
+                ready.countDown();
+                try {
+                    start.await();
+                    wishManagerService.reserveWish(wish.getId(), reserver.getId());
+                    successfulReservations.incrementAndGet();
+                } catch (WishReservedException e) {
+                    failedReservations.incrementAndGet();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
+            });
+            futures.add(future);
+        }
+        ready.await();
+        start.countDown();
+
+        for (Future<?> future : futures) {
+            future.get();
+        }
+
+        executor.shutdown();
+
+        Optional<Reservation> reservation = reservationRepository.findByWishId(wish.getId());
+
+        assertTrue(reservation.isPresent());
+        assertEquals(1, successfulReservations.get());
+        assertEquals(1, failedReservations.get());
     }
 
     @AfterEach
